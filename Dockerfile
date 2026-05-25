@@ -14,9 +14,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
-# Stage extensions into a location the volume won't shadow.
-# We install them as the coder user so file ownership is correct
-# when we copy them into the volume on first boot.
+# Stage extensions where the volume won't shadow them
 RUN mkdir -p /opt/code-server-seed/extensions \
     && chown -R coder:coder /opt/code-server-seed
 
@@ -31,17 +29,18 @@ RUN code-server \
         --extensions-dir /opt/code-server-seed/extensions \
         --install-extension anthropic.claude-code
 
-# Entrypoint script: seed the volume on first boot, then start code-server
+# Entrypoint: seed volume as root, then drop to coder via su
 USER root
 RUN cat > /usr/local/bin/start.sh <<'EOF'
 #!/bin/bash
 set -e
 
-# Ensure the home dir skeleton exists (volume may be empty on first boot)
+# Make sure the home dir skeleton exists on the volume
 mkdir -p /home/coder/project
 mkdir -p /home/coder/.local/share/code-server
+mkdir -p /home/coder/.config/code-server
 
-# Seed extensions only if the volume doesn't have them yet
+# Seed extensions if the volume doesn't have them yet
 if [ ! -d /home/coder/.local/share/code-server/extensions ] || \
    [ -z "$(ls -A /home/coder/.local/share/code-server/extensions 2>/dev/null)" ]; then
     echo "Seeding extensions into volume..."
@@ -49,13 +48,11 @@ if [ ! -d /home/coder/.local/share/code-server/extensions ] || \
     cp -rn /opt/code-server-seed/extensions/. /home/coder/.local/share/code-server/extensions/
 fi
 
-# Fix ownership in case the volume mounted with root ownership
+# Fix ownership — the volume may mount as root-owned
 chown -R coder:coder /home/coder
 
-exec sudo -u coder -E env "PATH=$PATH" code-server \
-    --bind-addr 0.0.0.0:8080 \
-    --auth password \
-    /home/coder/project
+# Drop to the coder user and launch code-server
+exec su coder -c "code-server --bind-addr 0.0.0.0:8080 --auth password /home/coder/project"
 EOF
 RUN chmod +x /usr/local/bin/start.sh
 
