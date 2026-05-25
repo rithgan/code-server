@@ -24,7 +24,4 @@ RUN code-server --install-extension esbenp.prettier-vscode \
 
 EXPOSE 8080
 
-CMD code-server \
-    --bind-addr 0.0.0.0:${PORT:-8080} \
-    --auth password \
-    /home/coder/project
+CMD ["sh", "-c", "exec code-server --bind-addr 0.0.0.0:${PORT:-8080} --auth password /home/coder/project"]
