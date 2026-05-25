@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     git curl build-essential sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Optional runtimes — add or remove as you need
+# Optional runtimes
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
@@ -18,10 +18,13 @@ RUN mkdir -p /home/coder/project \
 USER coder
 WORKDIR /home/coder/project
 
-# Pre-install extensions (baked into the image, restored on every rebuild)
+# Pre-install extensions
 RUN code-server --install-extension esbenp.prettier-vscode \
     && code-server --install-extension dbaeumer.vscode-eslint
 
 EXPOSE 8080
+ENV PORT=8080
 
-CMD ["sh", "-c", "exec code-server --bind-addr 0.0.0.0:${PORT:-8080} --auth password /home/coder/project"]
+# Override the base image's entrypoint so it doesn't wrap our command
+ENTRYPOINT []
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/home/coder/project"]
